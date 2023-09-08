@@ -5,4 +5,5 @@
 JupyterNotebook.bat
 /rasters/*_tifs/
 /lora/data/
-/lora/apikey
+/lora/apikey/
+/lora/figures/
