@@ -1,0 +1,8 @@
+**/.ipynb_checkpoints/
+**/temp/
+**/.Rhistory
+**/conf/
+JupyterNotebook.bat
+/rasters/*_tifs/
+/lora/data/
+/lora/apikey
