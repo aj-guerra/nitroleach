@@ -4,6 +4,6 @@
 **/conf/
 JupyterNotebook.bat
 /rasters/*_tifs/
-/lora/data/
+/lora/data/*_data*/
 /lora/apikey/
 /lora/figures/
