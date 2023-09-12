@@ -31,15 +31,26 @@ The sensor data is  imported from a CSV created in daily_resampling and transfor
 sensor_smdata <- read.csv("data/daily_data/all_data_daily.csv", ...)
 ```
 
+### Merging Data Sources
+
+The sensor and sample data are merged together using a rolling join that merges the same date if possible, or the day before if that is all that is available.
+
+```R
+past <- join_by(patch, depth, closest(x$date >= y$date))
+
+smdata_f <- smdata %>%
+    left_join(sensor_smdata_l, by = past)
+```
+
 ## Calibration Model
 
 ### Grouping Data
 
-The true data (`smdata_f`) is grouped by `patch` and `depth` to fit separate linear models for each group.
+The merged data (`smdata_f`) is grouped by `patch` and `depth` to fit separate linear models for each group.
 
 ### Linear Model Fitting
 
-For each combination of `patch` and `depth`, a linear model is fitted using the formula $ ( \text{sample vwc} = \alpha + \beta_0 \times \text{sensor data} )$.
+For each combination of `patch` and `depth`, a linear model is fitted using the formula $ ( \text{sample vwc} = \alpha + \beta_0 \times \text{sensor vwc} )$.
 
 ```R
 models <- by(smdata_f, list(as.factor(smdata_f$depth), as.factor(smdata_f$patch)), function(subset) lm(formula_obj, data = subset))
