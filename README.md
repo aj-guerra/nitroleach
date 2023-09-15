@@ -55,58 +55,6 @@ In general, just run notebooks all the way through in the order they are present
 | sensor_data/ | resample daily sm* | data/dailydata/ | daily_resampling |  :heavy_check_mark: |
 | dailydata/, sensor_data_clean/ | sensor calibration* | data/sensor_data_clean_cal/ | sensor-calibration-r | :heavy_check_mark: |
 
-
-#### 1b. Raster Download/Creation/Preprocessing Steps /rasters/
-
-| data input | process | data output | script | status |
-|------------|---------|-------------|--------|-------|
-| query | download data* | planet_tifs/ | planet-download | TBD when access to datacube resolved
-| true_data/nmin.csv | interpolate n | nmin_tifs/ | nitrokrige
-| sensor_data_clean_cal/ | interpolate sm | sm_tifs/ | smkrige
-| planet_tifs | calculate indices | index_tifs/ | indicies
-
-### 2. Model/Dataset Preparation  /prep/
-
-#### 2a. Source Extraction Single Point /prep/single_point/
-
-12ish dates, most have <10 patches sampled that day
-
-|input|merged-with|cols|script|output|status|
-|----|-----------|----|------|------|-|
-|lora/true_data/ | | doy, n90, crop | sample_sensor_extract | sample_sensor_mr, sample_mr| :heavy_check_mark: |
-|lora/sensor_sm_clean_cal/ | date, patch | sm30, sm60, sm90 | sample_sensor_extract | sensor_mr| :heavy_check_mark: |
-|rasters/planet_tifs/. | date, patch | bands 1-8, indicies | planet_train_extract | planet_train_mr| :heavy_check_mark: |
-|rasters/planet_tifs/. | date, patch | bands 1-8, indicies | planet_classify_extract | planet_classify_mr| |
-|rasters/topo_tifs/.| patch | elevation, slope, aspect, TIR | topo_extract | topo_mr| :heavy_check_mark: |
-|lora/data/shp/patch_coords.csv | patch | lon, lat, cluster | kmeanscluster | clusters | :heavy_check_mark: |
-
-#### 2b. Source Extraction Interpolated /prep/interpolated_point/
-
-5ish dates, all have almost all patches sampled that day
-
-|input|merged-with|cols|script|output|status|
-|----|-----------|----|------|------|-|
-| lora/data/shp | ||maskpixels | pc-mask.tif |
-|rasters/nmin_tifs/ | | doy, n90, crop | sample_extract| sample_mr|
-|rasters/sm_tifs/ | date, x, y | sm30, sm60, sm90 | sm_extract | sensor_mr|
-|rasters/planet_tifs/. | date, x, y | bands 1-8 | planet_extract | planet_mr|
-|rasters/topo_tifs/.| x, y | elevation, slope, aspect, TIR | topo_extract | topo_mr|
-|rasters/index_tifs/. | date, x, y |  indicies | index_extract | index_mr|
-
-- topo_extract done with both 1m single pixel and 3x3m neighborhood calculation, extraction based on mean of shapefiles also possible but would reflect patch dynamics and not sensor location dynamics
-
-#### 2c. Dataset Creation and Visualization
-
-##### Merges
-
-| data input | process | data output | script | status |
-|------------|---------|-------------|--------|-------|
-|sp/ sample_sensor_mr, planet_train_mr, topo_mr, clusters| merge single training points | train-predict/sp_training_data| sp_train_merge_r | :heavy_check_mark: |
-|sp/ sensor_mr, sp_planet_train_mr, topo_mr, clusters| merge single classify points | train-predict/sp_classify_data| sp_classify_merge_r |  |
-|ip/ sample_sensor_mr, planet_train_mr, topo_mr, clusters| merge interpolated training points | train-predict/ip_training_data| ip_train_merge_r | |
-|ip/ sensor_mr, sp_planet_train_mr, topo_mr, clusters| merge interpolated classify points | train-predict/ip_classify_data| ip_classify_merge_r |  |
-|merged, other| data inspection| in nb| features | :heavy_check_mark: |
-
 ##### Visualizations
 
 | data input | process | data output | script | status |
@@ -116,24 +64,51 @@ In general, just run notebooks all the way through in the order they are present
 | sensor_data_clean_cal/ | full clean, calibrated time series plots | in nb | ts-clean-cal | :heavy_check_mark: |
 | sensor_data/, sensor_data_clean/, sensor_data_clean_cal/ | comparision time series plots | in nb | ts-compare |
 
-### 3. Model Training and Predictions /train-predict/
-
-#### 3a. Single-Point N Supervised Model (sp_s)
+#### 1b. Raster Download/Creation/Preprocessing Steps /rasters/
 
 | data input | process | data output | script | status |
 |------------|---------|-------------|--------|-------|
-|data/sp_training_data| optimize+fit model| models/sp_s/ | fit_sp_s | :heavy_check_mark: |
+| query | download data* | planet_tifs/ | planet-download | TBD when access to datacube resolved
+| sensor_data_clean_cal/ | interpolate sm | sm_tifs/ | smkrige
+| planet_tifs/ | calculate indices | index_tifs/ | indicies
+| rasters/ | all rasters to same crs/ext | ../ | scale-rasters |
+
+### 2. Model/Dataset Preparation  /prep/
+
+#### 2a. Extraction for Point Data /prep/point
+
+12ish sample dates, most have <10 patches sampled that day
+
+|input|merged-with|cols|script|output|status|
+|----|-----------|----|------|------|-|
+|lora/true_data/ | | doy, n90, crop | sample_sensor_extract | sample_sensor_mr, sample_mr| :heavy_check_mark: |
+|lora/sensor_sm_clean_cal/ | date, patch | sm30, sm60, sm90 | sample_sensor_extract | sensor_mr| :heavy_check_mark: |
+|rasters/planet_tifs/. | date, patch | bands 1-8, indicies | planet_extract | planet_mr| :heavy_check_mark: |
+|rasters/topo_tifs/.| patch | elevation, slope, aspect, TIR | topo_extract | topo_mr| :heavy_check_mark: |
+|lora/data/shp/patch_coords.csv | patch | lon, lat, cluster | kmeanscluster | clusters | :heavy_check_mark: |
+
+#### 2b. Source Extraction Points /prep/raster
+
+|input|merged-with|cols|script|output|status|
+|----|-----------|----|------|------|-|
+|
+
+### 3. Model Training and Predictions /train-predict/
+
+#### 3a. Nitrogen Model Training
+
+| data input | process | data output | script | status |
+|------------|---------|-------------|--------|-------|
+|prep/point/merge_ready/| merge points from sample dates | data/dataset_1 | merge_dataset_1 | :heavy_check_mark: |
+|dataset_1 | feature inspection | in nb | features | :heavy_check_mark: |
+|dataset_1 | optimize+fit model 1 | models/m1/ | train_nmodel_1 | :heavy_check_mark: |
+|prep/point/merge_ready/, m1 | predict+create dataset 2 | data/dataset_2 | pred_ds_2 | |
+|dataset_2| optimize+fit model 2 | models/m2/ | train_nmodel_2 | |
+|dataset_3| optimize+fit model 3 | models/m3/ | train_nmodel_3 | |
+
+#### 3b. Nitrogen Model Predictions
+
+| data input | process | data output | script | status |
+|------------|---------|-------------|--------|-------|
 |raster/, model/|classify and predict| classifications/ | classify
 |classifications/| summarize classifications | output/ | summarize
-
-#### 3b. Interpolated N Supervised Model (ip_s)
-
-...
-
-#### 3c. Single-Point N Unsupervised Model (sp_u)
-
-...
-
-#### 3c. Interpolated N Unsupervised Model (ip_u)
-
-...
